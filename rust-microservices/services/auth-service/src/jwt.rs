@@ -22,7 +22,7 @@ pub fn create_jwt(
         .duration_since(UNIX_EPOCH)
         .expect("System time is before UNIX EPOCH, cannot create JWT.")
         .as_secs()
-        + 3600; // 1 hour
+        + 172800; // 48 hours
 
     let claims = Claims {
         sub: user_id.to_string(),

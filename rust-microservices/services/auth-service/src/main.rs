@@ -4,6 +4,7 @@ use std::{env, net::SocketAddr};
 use tokio::net::TcpListener;
 use tracing::{info, error};
 use tracing_subscriber::EnvFilter;
+use redis::Client as RedisClient;
 
 mod handlers;
 mod jwt;
@@ -33,8 +34,16 @@ async fn main() {
         }
     };
 
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://redis:6379".to_string());
+    info!("Connecting to Redis at {}...", redis_url);
+    let redis_client = RedisClient::open(redis_url).unwrap_or_else(|e| {
+        error!("❌ Failed to create Redis client: {}", e);
+        panic!("Cannot create Redis client: {}", e);
+    });
+    info!("✓ Redis client created.");
+
     info!("Creating UserStore...");
-    let store = UserStore::new(jwt_secret);
+    let store = UserStore::new(jwt_secret, redis_client);
     info!("✓ UserStore created.");
 
     let app = Router::new()

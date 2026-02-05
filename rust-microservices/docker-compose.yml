@@ -40,6 +40,8 @@ services:
     environment:
       RUST_LOG: debug
       DATABASE_URL: postgres://user:password@postgres:5432/app_db
+      JWT_SECRET: dev-secret
+      REDIS_URL: redis://redis:6379
     expose:
       - "8081"
     networks:

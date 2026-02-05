@@ -5,6 +5,8 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use redis::Commands;
+use tracing::error;
 
 use crate::{
     jwt::create_jwt,
@@ -69,6 +71,17 @@ pub async fn login(
         user.email.clone(),
         &store.jwt_secret,
     );
+
+    // Store token in Redis with 48-hour expiration (172800 seconds)
+    let mut conn = store.redis_client.get_connection().map_err(|e| {
+        error!("Failed to get Redis connection: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let _: () = conn.set_ex(&token, "valid", 172800).map_err(|e| {
+        error!("Failed to store token in Redis: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     Ok(Json(AuthResponse {
         access_token: token,
