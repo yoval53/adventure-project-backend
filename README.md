@@ -22,6 +22,17 @@ TypeScript + Node.js + Express API server that can run locally and deploy to Ver
    export MONGODB_URI="mongodb+srv://..."
    ```
 
+   Optional TLS settings when connecting through private/self-signed infrastructure:
+
+   ```bash
+   export MONGODB_TLS_CA_FILE="/path/to/ca.pem"
+   export MONGODB_TLS_ALLOW_INVALID_CERTIFICATES="false"
+   export MONGODB_TLS_ALLOW_INVALID_HOSTNAMES="false"
+   ```
+
+   > `MONGODB_TLS_ALLOW_INVALID_CERTIFICATES` / `MONGODB_TLS_ALLOW_INVALID_HOSTNAMES`
+   > should only be enabled temporarily for debugging certificate issues.
+
 3. Start server:
 
    ```bash
