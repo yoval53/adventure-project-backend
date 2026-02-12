@@ -6,6 +6,7 @@ import { checkMongoHealth, getMongoClient } from "./db";
 
 export const app = express();
 
+app.set("trust proxy", true);
 app.use(express.json());
 
 app.get("/", (_req: Request, res: Response) => {
@@ -83,23 +84,21 @@ function getJwtSecret(): string {
 
 function createRateLimiter(windowMs: number, maxRequests: number) {
   const hits = new Map<string, RateLimitEntry>();
+  let lastCleanup = 0;
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const forwardedFor = req.headers["x-forwarded-for"];
-    const key =
-      (typeof forwardedFor === "string" ? forwardedFor.split(",")[0]?.trim() : undefined) ??
-      req.ip ??
-      "unknown";
+    const key = req.ip ?? "unknown";
     const now = Date.now();
     const current = hits.get(key);
 
     if (!current || now >= current.resetAt) {
-      if (hits.size > 1000) {
+      if (now - lastCleanup >= windowMs) {
         for (const [entryKey, entry] of hits.entries()) {
           if (now >= entry.resetAt) {
             hits.delete(entryKey);
           }
         }
+        lastCleanup = now;
       }
       hits.set(key, { count: 1, resetAt: now + windowMs });
       next();
@@ -151,7 +150,17 @@ function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunctio
 }
 
 function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !email.includes("..");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return false;
+  }
+  const [local, domain] = email.split("@");
+  if (!local || !domain) {
+    return false;
+  }
+  if (local.startsWith(".") || local.endsWith(".") || domain.startsWith(".") || domain.endsWith(".")) {
+    return false;
+  }
+  return !local.includes("..") && !domain.includes("..");
 }
 
 function isStrongPassword(password: string) {
@@ -164,7 +173,15 @@ function isStrongPassword(password: string) {
   );
 }
 
-const authRateLimiter = createRateLimiter(60_000, 20);
+function parseNumberEnv(name: string, fallback: number) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+const authRateLimiter = createRateLimiter(
+  parseNumberEnv("AUTH_RATE_LIMIT_WINDOW_MS", 60_000),
+  parseNumberEnv("AUTH_RATE_LIMIT_MAX", 20),
+);
 
 async function createPasswordHash(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
