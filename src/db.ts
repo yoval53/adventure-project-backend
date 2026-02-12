@@ -1,6 +1,50 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, type MongoClientOptions } from "mongodb";
 
 let cachedClient: MongoClient | null = null;
+
+function parseBooleanEnv(value: string | undefined): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return undefined;
+}
+
+function getMongoClientOptions(): MongoClientOptions {
+  const allowInvalidCertificates = parseBooleanEnv(
+    process.env.MONGODB_TLS_ALLOW_INVALID_CERTIFICATES,
+  );
+  const allowInvalidHostnames = parseBooleanEnv(
+    process.env.MONGODB_TLS_ALLOW_INVALID_HOSTNAMES,
+  );
+
+  const options: MongoClientOptions = {
+    serverSelectionTimeoutMS: 10_000,
+  };
+
+  if (allowInvalidCertificates !== undefined) {
+    options.tlsAllowInvalidCertificates = allowInvalidCertificates;
+  }
+
+  if (allowInvalidHostnames !== undefined) {
+    options.tlsAllowInvalidHostnames = allowInvalidHostnames;
+  }
+
+  if (process.env.MONGODB_TLS_CA_FILE) {
+    options.tlsCAFile = process.env.MONGODB_TLS_CA_FILE;
+  }
+
+  return options;
+}
 
 export async function getMongoClient(): Promise<MongoClient> {
   if (cachedClient) {
@@ -12,7 +56,7 @@ export async function getMongoClient(): Promise<MongoClient> {
     throw new Error("MONGODB_URI environment variable is not set");
   }
 
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, getMongoClientOptions());
   await client.connect();
   cachedClient = client;
 
