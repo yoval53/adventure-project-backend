@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
+import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { checkMongoHealth, getMongoClient } from "./db";
 
@@ -117,7 +117,8 @@ function createRateLimiter(windowMs: number, maxRequests: number) {
 }
 
 function createToken(payload: AuthPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: "1h" });
+  const expiresIn = (process.env.JWT_EXPIRES_IN ?? "1h") as SignOptions["expiresIn"];
+  return jwt.sign(payload, getJwtSecret(), { expiresIn });
 }
 
 function parseAuthPayload(decoded: string | JwtPayload): AuthPayload {
@@ -184,7 +185,7 @@ const authRateLimiter = createRateLimiter(
 );
 
 async function createPasswordHash(password: string) {
-  const salt = crypto.randomBytes(16).toString("hex");
+  const salt = crypto.randomBytes(32).toString("hex");
   const hash = await scryptAsync(password, salt, 64);
   return { salt, hash: hash.toString("hex") };
 }
