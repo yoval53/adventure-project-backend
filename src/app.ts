@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { checkMongoHealth, getMongoClient } from "./db";
@@ -52,11 +53,6 @@ type UserRecord = {
   createdAt: Date;
 };
 
-type RateLimitEntry = {
-  count: number;
-  resetAt: number;
-};
-
 const PASSWORD_SALT_BYTES = 32;
 const PASSWORD_KEY_LENGTH = 64;
 
@@ -83,44 +79,6 @@ function getJwtSecret(): string {
     throw new Error("JWT_SECRET environment variable is not set");
   }
   return secret;
-}
-
-function createRateLimiter(windowMs: number, maxRequests: number) {
-  const hits = new Map<string, RateLimitEntry>();
-  let lastCleanup = 0;
-
-  return (req: Request, res: Response, next: NextFunction) => {
-    const key = req.ip;
-    if (!key) {
-      res.status(400).json({ ok: false, error: "Unable to determine client IP" });
-      return;
-    }
-    const now = Date.now();
-    const current = hits.get(key);
-
-    if (!current || now >= current.resetAt) {
-      if (now - lastCleanup >= windowMs) {
-        for (const [entryKey, entry] of hits.entries()) {
-          if (now >= entry.resetAt) {
-            hits.delete(entryKey);
-          }
-        }
-        lastCleanup = now;
-      }
-      hits.set(key, { count: 1, resetAt: now + windowMs });
-      next();
-      return;
-    }
-
-    current.count += 1;
-    if (current.count > maxRequests) {
-      res.status(429).json({ ok: false, error: "Too many requests, try again later" });
-      return;
-    }
-
-    hits.set(key, current);
-    next();
-  };
 }
 
 function resolveJwtExpiresIn(): SignOptions["expiresIn"] {
@@ -195,10 +153,16 @@ function isStrongPassword(password: string) {
   );
 }
 
-const authRateLimiter = createRateLimiter(
-  parseNumberEnv("AUTH_RATE_LIMIT_WINDOW_MS", 60_000),
-  parseNumberEnv("AUTH_RATE_LIMIT_MAX", 20),
-);
+const authRateLimiter = rateLimit({
+  windowMs: parseNumberEnv("AUTH_RATE_LIMIT_WINDOW_MS", 60_000),
+  limit: parseNumberEnv("AUTH_RATE_LIMIT_MAX", 20),
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip ?? "unknown",
+  handler: (_req, res) => {
+    res.status(429).json({ ok: false, error: "Too many requests, try again later" });
+  },
+});
 
 async function createPasswordHash(password: string) {
   const salt = crypto.randomBytes(PASSWORD_SALT_BYTES).toString("hex");
