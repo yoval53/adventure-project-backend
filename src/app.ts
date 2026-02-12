@@ -94,6 +94,13 @@ function createRateLimiter(windowMs: number, maxRequests: number) {
     const current = hits.get(key);
 
     if (!current || now >= current.resetAt) {
+      if (hits.size > 1000) {
+        for (const [entryKey, entry] of hits.entries()) {
+          if (now >= entry.resetAt) {
+            hits.delete(entryKey);
+          }
+        }
+      }
       hits.set(key, { count: 1, resetAt: now + windowMs });
       next();
       return;
@@ -144,11 +151,17 @@ function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunctio
 }
 
 function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !email.includes("..");
 }
 
 function isStrongPassword(password: string) {
-  return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
+  return (
+    password.length >= 8 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  );
 }
 
 const authRateLimiter = createRateLimiter(60_000, 20);
@@ -181,7 +194,8 @@ app.post("/auth/register", authRateLimiter, async (req: Request, res: Response) 
         .status(400)
         .json({
           ok: false,
-          error: "Valid email and strong password (min 8 chars, letters + numbers) are required",
+          error:
+            "Valid email and strong password (min 8 chars, upper/lower/number/symbol) are required",
         });
       return;
     }
