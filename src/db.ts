@@ -63,7 +63,19 @@ export async function getMongoClient(): Promise<MongoClient> {
   return client;
 }
 
+function resetCachedClient(): void {
+  if (cachedClient) {
+    cachedClient.close(true).catch(() => {});
+    cachedClient = null;
+  }
+}
+
 export async function checkMongoHealth(): Promise<void> {
-  const client = await getMongoClient();
-  await client.db("admin").command({ ping: 1 });
+  try {
+    const client = await getMongoClient();
+    await client.db("admin").command({ ping: 1 });
+  } catch (error) {
+    resetCachedClient();
+    throw error;
+  }
 }
