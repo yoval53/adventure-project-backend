@@ -181,6 +181,13 @@ function isValidEmail(email: string) {
   return !local.includes("..") && !domain.includes("..");
 }
 
+function parseNumberEnv(name: string, fallback: number) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+const PASSWORD_MIN_LENGTH = parseNumberEnv("PASSWORD_MIN_LENGTH", 8);
+
 function isStrongPassword(password: string) {
   return (
     password.length >= PASSWORD_MIN_LENGTH &&
@@ -190,13 +197,6 @@ function isStrongPassword(password: string) {
     /[^A-Za-z0-9]/.test(password)
   );
 }
-
-function parseNumberEnv(name: string, fallback: number) {
-  const value = Number(process.env[name]);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
-const PASSWORD_MIN_LENGTH = parseNumberEnv("PASSWORD_MIN_LENGTH", 8);
 
 const authRateLimiter = createRateLimiter(
   parseNumberEnv("AUTH_RATE_LIMIT_WINDOW_MS", 60_000),
