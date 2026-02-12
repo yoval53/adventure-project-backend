@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
+import { parseNumberEnv } from "../utils/env";
 import { type AuthPayload, getJwtSecret, parseAuthPayload } from "../utils/jwt";
 
 export type AuthenticatedRequest = Request & {
@@ -22,11 +23,6 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     const message = error instanceof Error ? error.message : "Invalid token";
     res.status(401).json({ ok: false, error: message });
   }
-}
-
-function parseNumberEnv(name: string, fallback: number) {
-  const value = Number(process.env[name]);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 export const authRateLimiter = rateLimit({

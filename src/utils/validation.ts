@@ -9,10 +9,7 @@ export function isValidEmail(email: string) {
   return !local.includes("..") && !domain.includes("..");
 }
 
-function parseNumberEnv(name: string, fallback: number) {
-  const value = Number(process.env[name]);
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
+import { parseNumberEnv } from "./env";
 
 export const PASSWORD_MIN_LENGTH = parseNumberEnv("PASSWORD_MIN_LENGTH", 8);
 
