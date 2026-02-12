@@ -172,9 +172,6 @@ function isValidEmail(email: string) {
     return false;
   }
   const [local, domain] = email.split("@");
-  if (!local || !domain) {
-    return false;
-  }
   if (local.startsWith(".") || local.endsWith(".") || domain.startsWith(".") || domain.endsWith(".")) {
     return false;
   }
@@ -226,13 +223,15 @@ app.post("/auth/register", authRateLimiter, async (req: Request, res: Response) 
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail || !isValidEmail(normalizedEmail) || !isStrongPassword(password)) {
-      res
-        .status(400)
-        .json({
-          ok: false,
-          error: `Valid email and strong password (min ${PASSWORD_MIN_LENGTH} chars, upper/lower/number/symbol) are required`,
-        });
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      res.status(400).json({ ok: false, error: "Valid email is required" });
+      return;
+    }
+    if (!isStrongPassword(password)) {
+      res.status(400).json({
+        ok: false,
+        error: `Password must be at least ${PASSWORD_MIN_LENGTH} chars and include upper/lower/number/symbol`,
+      });
       return;
     }
 
