@@ -1,3 +1,4 @@
+import { createSecureContext } from "node:tls";
 import { MongoClient, type MongoClientOptions } from "mongodb";
 
 let cachedClient: MongoClient | null = null;
@@ -29,6 +30,8 @@ function getMongoClientOptions(): MongoClientOptions {
 
   const options: MongoClientOptions = {
     serverSelectionTimeoutMS: 10_000,
+    // Atlas/SRV deployments require TLS 1.2+.
+    secureContext: createSecureContext({ minVersion: "TLSv1.2" }),
   };
 
   if (allowInvalidCertificates !== undefined) {
@@ -57,13 +60,22 @@ export async function getMongoClient(): Promise<MongoClient> {
   }
 
   const options = getMongoClientOptions();
+  const isSrvUri = uri.startsWith("mongodb+srv://");
 
   console.log("[db] Connecting to MongoDB...", {
+    node: process.version,
+    openssl: process.versions.openssl,
+    isSrvUri,
     serverSelectionTimeoutMS: options.serverSelectionTimeoutMS,
+    tlsMinVersion: "TLSv1.2",
     tlsAllowInvalidCertificates: options.tlsAllowInvalidCertificates,
     tlsAllowInvalidHostnames: options.tlsAllowInvalidHostnames,
     tlsCAFile: options.tlsCAFile ?? "(not set)",
   });
+
+  if (!isSrvUri) {
+    options.tls = true;
+  }
 
   const client = new MongoClient(uri, options);
 
@@ -112,11 +124,15 @@ export async function checkMongoHealth(): Promise<void> {
 
     if (isTlsError(err.message)) {
       console.error("[db] TLS/SSL error detected. Current TLS env config:", {
+        NODE_VERSION: process.version,
+        OPENSSL_VERSION: process.versions.openssl,
         MONGODB_TLS_ALLOW_INVALID_CERTIFICATES: process.env.MONGODB_TLS_ALLOW_INVALID_CERTIFICATES ?? "(not set)",
         MONGODB_TLS_ALLOW_INVALID_HOSTNAMES: process.env.MONGODB_TLS_ALLOW_INVALID_HOSTNAMES ?? "(not set)",
         MONGODB_TLS_CA_FILE: process.env.MONGODB_TLS_CA_FILE ?? "(not set)",
       });
-      console.error("[db] Hint: If using self-signed certs, set MONGODB_TLS_ALLOW_INVALID_CERTIFICATES=true");
+      console.error(
+        "[db] Hint: Atlas + mongodb+srv:// already uses TLS. Prefer Node 18+ runtime and avoid invalid certificate flags unless you intentionally use custom certs.",
+      );
     }
 
     resetCachedClient();
