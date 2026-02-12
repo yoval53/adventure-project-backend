@@ -94,14 +94,14 @@ router.post("/auth/login", authRateLimiter, async (req: Request, res: Response) 
     const users = await getUsersCollection();
     const user = await users.findOne({ email: normalizedEmail });
     if (!user) {
-      console.log("[POST /auth/login] User not found");
+      console.log("[POST /auth/login] Authentication failed");
       res.status(401).json({ ok: false, error: "Invalid credentials" });
       return;
     }
 
     const passwordMatches = await verifyPassword(password, user.passwordSalt, user.passwordHash);
     if (!passwordMatches) {
-      console.log("[POST /auth/login] Invalid password");
+      console.log("[POST /auth/login] Authentication failed");
       res.status(401).json({ ok: false, error: "Invalid credentials" });
       return;
     }
