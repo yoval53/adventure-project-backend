@@ -5,21 +5,11 @@ const router = Router();
 
 router.get("/", (_req: Request, res: Response) => {
   console.log("[GET /] Serving API index");
-  res.status(200).send(`<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Adventure API</title></head>
-<body>
-  <h1>Adventure API</h1>
-  <p>Available endpoints:</p>
-  <ul>
-    <li><a href="/healthz">/healthz</a></li>
-    <li><a href="/db/healthz">/db/healthz</a></li>
-    <li>/auth/register</li>
-    <li>/auth/login</li>
-    <li>/auth/me</li>
-  </ul>
-</body>
-</html>`);
+  res.status(200).json({
+    ok: true,
+    service: "adventure-api",
+    endpoints: ["/healthz", "/db/healthz", "/auth/register", "/auth/login", "/auth/me"],
+  });
 });
 
 router.get("/favicon.ico", (_req: Request, res: Response) => {
