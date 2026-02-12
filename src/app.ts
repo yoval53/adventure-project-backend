@@ -51,6 +51,11 @@ type UserRecord = {
   createdAt: Date;
 };
 
+type RateLimitEntry = {
+  count: number;
+  resetAt: number;
+};
+
 const scryptAsync = (password: string, salt: string, keylen: number) =>
   new Promise<Buffer>((resolve, reject) => {
     crypto.scrypt(password, salt, keylen, (err, derivedKey) => {
@@ -74,6 +79,35 @@ function getJwtSecret(): string {
     throw new Error("JWT_SECRET environment variable is not set");
   }
   return secret;
+}
+
+function createRateLimiter(windowMs: number, maxRequests: number) {
+  const hits = new Map<string, RateLimitEntry>();
+
+  return (req: Request, res: Response, next: NextFunction) => {
+    const forwardedFor = req.headers["x-forwarded-for"];
+    const key =
+      (typeof forwardedFor === "string" ? forwardedFor.split(",")[0]?.trim() : undefined) ??
+      req.ip ??
+      "unknown";
+    const now = Date.now();
+    const current = hits.get(key);
+
+    if (!current || now >= current.resetAt) {
+      hits.set(key, { count: 1, resetAt: now + windowMs });
+      next();
+      return;
+    }
+
+    current.count += 1;
+    if (current.count > maxRequests) {
+      res.status(429).json({ ok: false, error: "Too many requests, try again later" });
+      return;
+    }
+
+    hits.set(key, current);
+    next();
+  };
 }
 
 function createToken(payload: AuthPayload): string {
@@ -117,6 +151,8 @@ function isStrongPassword(password: string) {
   return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
 }
 
+const authRateLimiter = createRateLimiter(60_000, 20);
+
 async function createPasswordHash(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = await scryptAsync(password, salt, 64);
@@ -132,7 +168,7 @@ async function verifyPassword(password: string, salt: string, expectedHash: stri
   return crypto.timingSafeEqual(expectedBuffer, hash);
 }
 
-app.post("/auth/register", async (req: Request, res: Response) => {
+app.post("/auth/register", authRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body ?? {};
     if (typeof email !== "string" || typeof password !== "string") {
@@ -176,7 +212,7 @@ app.post("/auth/register", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/auth/login", async (req: Request, res: Response) => {
+app.post("/auth/login", authRateLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body ?? {};
     if (typeof email !== "string" || typeof password !== "string") {
@@ -220,7 +256,11 @@ app.post("/auth/login", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/auth/me", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+app.get(
+  "/auth/me",
+  authRateLimiter,
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       res.status(401).json({ ok: false, error: "Unauthorized" });
@@ -248,4 +288,5 @@ app.get("/auth/me", requireAuth, async (req: AuthenticatedRequest, res: Response
     const message = error instanceof Error ? error.message : "Failed to load user";
     res.status(500).json({ ok: false, error: message });
   }
-});
+  },
+);
