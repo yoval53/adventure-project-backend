@@ -7,9 +7,36 @@ TypeScript + Node.js + Express API server that can run locally and deploy to Ver
 - `GET /` - API index with available endpoints.
 - `GET /healthz` - basic API health check.
 - `GET /db/healthz` - MongoDB health check using `MONGODB_URI`.
+
 - `POST /auth/register` - register a user and return a JWT (password requirements configurable, defaults to 8+ chars with upper/lower/number/symbol).
+
+  **Request body:**
+
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "StrongPass123!"
+  }
+  ```
+
 - `POST /auth/login` - login and return a JWT.
+
+  **Request body:**
+
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "StrongPass123!"
+  }
+  ```
+
 - `GET /auth/me` - return the authenticated user (Bearer token required).
+
+  **Request header:**
+
+  ```
+  Authorization: Bearer <token>
+  ```
 
 ## Local development
 
