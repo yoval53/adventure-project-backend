@@ -57,6 +57,9 @@ type RateLimitEntry = {
   resetAt: number;
 };
 
+const PASSWORD_SALT_BYTES = 32;
+const PASSWORD_KEY_LENGTH = 64;
+
 const scryptAsync = (password: string, salt: string, keylen: number) =>
   new Promise<Buffer>((resolve, reject) => {
     crypto.scrypt(password, salt, keylen, (err, derivedKey) => {
@@ -87,7 +90,11 @@ function createRateLimiter(windowMs: number, maxRequests: number) {
   let lastCleanup = 0;
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const key = req.ip ?? "unknown";
+    const key = req.ip;
+    if (!key) {
+      res.status(400).json({ ok: false, error: "Unable to determine client IP" });
+      return;
+    }
     const now = Date.now();
     const current = hits.get(key);
 
@@ -116,8 +123,18 @@ function createRateLimiter(windowMs: number, maxRequests: number) {
   };
 }
 
+function resolveJwtExpiresIn(): SignOptions["expiresIn"] {
+  const raw = process.env.JWT_EXPIRES_IN;
+  if (!raw) {
+    return "1h";
+  }
+  const normalized = raw.toLowerCase();
+  const isValid = /^\d+$/.test(normalized) || /^\d+(ms|s|m|h|d|w|y)$/.test(normalized);
+  return (isValid ? raw : "1h") as SignOptions["expiresIn"];
+}
+
 function createToken(payload: AuthPayload): string {
-  const expiresIn = (process.env.JWT_EXPIRES_IN ?? "1h") as SignOptions["expiresIn"];
+  const expiresIn = resolveJwtExpiresIn();
   return jwt.sign(payload, getJwtSecret(), { expiresIn });
 }
 
@@ -166,7 +183,7 @@ function isValidEmail(email: string) {
 
 function isStrongPassword(password: string) {
   return (
-    password.length >= 8 &&
+    password.length >= PASSWORD_MIN_LENGTH &&
     /[a-z]/.test(password) &&
     /[A-Z]/.test(password) &&
     /\d/.test(password) &&
@@ -179,19 +196,21 @@ function parseNumberEnv(name: string, fallback: number) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+const PASSWORD_MIN_LENGTH = parseNumberEnv("PASSWORD_MIN_LENGTH", 8);
+
 const authRateLimiter = createRateLimiter(
   parseNumberEnv("AUTH_RATE_LIMIT_WINDOW_MS", 60_000),
   parseNumberEnv("AUTH_RATE_LIMIT_MAX", 20),
 );
 
 async function createPasswordHash(password: string) {
-  const salt = crypto.randomBytes(32).toString("hex");
-  const hash = await scryptAsync(password, salt, 64);
+  const salt = crypto.randomBytes(PASSWORD_SALT_BYTES).toString("hex");
+  const hash = await scryptAsync(password, salt, PASSWORD_KEY_LENGTH);
   return { salt, hash: hash.toString("hex") };
 }
 
 async function verifyPassword(password: string, salt: string, expectedHash: string) {
-  const hash = await scryptAsync(password, salt, 64);
+  const hash = await scryptAsync(password, salt, PASSWORD_KEY_LENGTH);
   const expectedBuffer = Buffer.from(expectedHash, "hex");
   if (expectedBuffer.length !== hash.length) {
     return false;
@@ -212,8 +231,7 @@ app.post("/auth/register", authRateLimiter, async (req: Request, res: Response) 
         .status(400)
         .json({
           ok: false,
-          error:
-            "Valid email and strong password (min 8 chars, upper/lower/number/symbol) are required",
+          error: `Valid email and strong password (min ${PASSWORD_MIN_LENGTH} chars, upper/lower/number/symbol) are required`,
         });
       return;
     }

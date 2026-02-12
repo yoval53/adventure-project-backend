@@ -28,6 +28,7 @@ TypeScript + Node.js + Express API server that can run locally and deploy to Ver
    export MONGODB_DB="adventure" # optional
    export AUTH_RATE_LIMIT_WINDOW_MS="60000" # optional
    export AUTH_RATE_LIMIT_MAX="20" # optional
+   export PASSWORD_MIN_LENGTH="8" # optional
    ```
 
 3. Start server:
