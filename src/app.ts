@@ -58,7 +58,7 @@ const scryptAsync = (password: string, salt: string, keylen: number) =>
         reject(err);
         return;
       }
-      resolve(derivedKey as Buffer);
+      resolve(derivedKey);
     });
   });
 
@@ -109,6 +109,14 @@ function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunctio
   }
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isStrongPassword(password: string) {
+  return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
+}
+
 async function createPasswordHash(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = await scryptAsync(password, salt, 64);
@@ -132,10 +140,13 @@ app.post("/auth/register", async (req: Request, res: Response) => {
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail || password.length < 8) {
+    if (!normalizedEmail || !isValidEmail(normalizedEmail) || !isStrongPassword(password)) {
       res
         .status(400)
-        .json({ ok: false, error: "Email and password (min 8 chars) are required" });
+        .json({
+          ok: false,
+          error: "Valid email and strong password (min 8 chars, letters + numbers) are required",
+        });
       return;
     }
 
@@ -174,6 +185,10 @@ app.post("/auth/login", async (req: Request, res: Response) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
+      res.status(400).json({ ok: false, error: "Valid email is required" });
+      return;
+    }
     const users = await getUsersCollection();
     const user = await users.findOne({ email: normalizedEmail });
     if (!user) {
