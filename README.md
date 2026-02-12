@@ -4,6 +4,7 @@ TypeScript + Node.js + Express API server that can run locally and deploy to Ver
 
 ## Endpoints
 
+- `GET /` - API index with available endpoints.
 - `GET /healthz` - basic API health check.
 - `GET /db/healthz` - MongoDB health check using `MONGODB_URI`.
 

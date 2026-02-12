@@ -3,6 +3,18 @@ import { checkMongoHealth } from "./db";
 
 export const app = express();
 
+app.get("/", (_req: Request, res: Response) => {
+  res.status(200).json({
+    ok: true,
+    service: "api",
+    endpoints: ["/healthz", "/db/healthz"],
+  });
+});
+
+app.get("/favicon.ico", (_req: Request, res: Response) => {
+  res.status(204).end();
+});
+
 app.get("/healthz", (_req: Request, res: Response) => {
   res.status(200).json({ ok: true, service: "api", uptime: process.uptime() });
 });
