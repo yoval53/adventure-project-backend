@@ -30,7 +30,6 @@ export const authRateLimiter = rateLimit({
   limit: parseNumberEnv("AUTH_RATE_LIMIT_MAX", 20),
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip ?? "unknown",
   handler: (_req, res) => {
     res.status(429).json({ ok: false, error: "Too many requests, try again later" });
   },
