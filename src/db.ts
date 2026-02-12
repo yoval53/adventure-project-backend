@@ -1,4 +1,3 @@
-import { createSecureContext } from "node:tls";
 import { MongoClient, type MongoClientOptions } from "mongodb";
 
 let cachedClient: MongoClient | null = null;
@@ -30,8 +29,6 @@ function getMongoClientOptions(): MongoClientOptions {
 
   const options: MongoClientOptions = {
     serverSelectionTimeoutMS: 10_000,
-    // Atlas/SRV deployments require TLS 1.2+.
-    secureContext: createSecureContext({ minVersion: "TLSv1.2" }),
   };
 
   if (allowInvalidCertificates !== undefined) {
@@ -67,7 +64,7 @@ export async function getMongoClient(): Promise<MongoClient> {
     openssl: process.versions.openssl,
     isSrvUri,
     serverSelectionTimeoutMS: options.serverSelectionTimeoutMS,
-    tlsMinVersion: "TLSv1.2",
+    tlsMinVersion: "(driver default)",
     tlsAllowInvalidCertificates: options.tlsAllowInvalidCertificates,
     tlsAllowInvalidHostnames: options.tlsAllowInvalidHostnames,
     tlsCAFile: options.tlsCAFile ?? "(not set)",
