@@ -43,10 +43,10 @@ TypeScript + Node.js + Express API server that can run locally and deploy to Ver
 1. Install dependencies:
 
    ```bash
-   npm install
+   bun install
    ```
 
-2. Set environment variable:
+2. Set environment variables:
 
    ```bash
    export MONGODB_URI="mongodb+srv://..."
@@ -69,10 +69,10 @@ TypeScript + Node.js + Express API server that can run locally and deploy to Ver
    > `MONGODB_TLS_ALLOW_INVALID_CERTIFICATES` / `MONGODB_TLS_ALLOW_INVALID_HOSTNAMES`
    > should only be enabled temporarily for debugging certificate issues.
 
-3. Start server:
+3. Start dev server:
 
    ```bash
-   npm run dev
+   vc dev
    ```
 
 ## Deploy to Vercel

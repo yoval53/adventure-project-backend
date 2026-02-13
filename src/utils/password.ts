@@ -26,5 +26,5 @@ export async function verifyPassword(password: string, salt: string, expectedHas
   if (expectedBuffer.length !== hash.length) {
     return false;
   }
-  return crypto.timingSafeEqual(expectedBuffer, hash);
+  return crypto.timingSafeEqual(new Uint8Array(expectedBuffer), new Uint8Array(hash));
 }
