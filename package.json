@@ -1,5 +1,10 @@
 {
   "name": "express",
+  "scripts": {
+    "dev": "vc dev",
+    "build": "tsc",
+    "start": "node dist/src/server.js"
+  },
   "dependencies": {
     "express": "5.1.0",
     "express-rate-limit": "^7.5.0",
@@ -13,6 +18,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/morgan": "^1.9.9",
     "@types/node": "20.11.17",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "vercel": "^50.16.0"
   }
 }
